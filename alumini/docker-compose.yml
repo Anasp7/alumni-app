@@ -1,0 +1,53 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: alumni_mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-alumni_connect}
+      MYSQL_USER: ${MYSQL_USER:-alumni_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-alumni_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./new-backend
+      dockerfile: Dockerfile
+    container_name: alumni_backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./new-backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./new-frontend
+      dockerfile: Dockerfile
+    container_name: alumni_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=/api
+      - VITE_BACKEND_URL=http://backend:5000
+    volumes:
+      - ./new-frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+
+
